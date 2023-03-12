@@ -1,0 +1,62 @@
+﻿@page "/signin"
+@inject HttpClientFactory HttpClientFactory
+@inject ILocalStorageService storageService
+@inject AuthenticationStateProvider authenticationStateProvider
+@using Blazor.HelloGalaxy.Client.Infrastructure
+@using Blazor.HelloGalaxy.Shared
+@using Blazored.LocalStorage
+@using Microsoft.AspNetCore.Components
+<h3>SignIn</h3>
+
+@if (signedInWithSuccess == false)
+{
+    <EditForm Model="userToSignIn" OnValidSubmit="SignInUserAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary></ValidationSummary>
+        <div class="form-group my-3">
+            <label for="email">Email address</label>
+            <InputText @bind-Value="userToSignIn.Email" id="email" class="form-control" />
+            <ValidationMessage For="() => userToSignIn.Email" />
+        </div>
+        <div class="form-group my-3">
+            <label for="password">Password</label>
+            <InputText @bind-Value="userToSignIn.Password" type="password" id="password" class="form-control" />
+            <ValidationMessage For="() => userToSignIn.Password" />
+        </div>
+        <button class="btn btn-primary" type="submit">OK</button>
+
+        @if (attemptFailed)
+        {
+            <p class="my-3 text-danger">Sign in failed</p>
+        }
+    </EditForm>
+}
+else
+{
+    <h4>Sign in successful</h4>
+}
+@code {
+    private readonly RegisterRequest userToSignIn = new();
+    private bool signedInWithSuccess;
+    private bool attemptFailed;
+
+    private async Task SignInUserAsync()
+    {
+        var httpClient = await HttpClientFactory.GetClientAsync();
+        var httpResponseMessage = await httpClient.PostAsJsonAsync("api/accounts/signin", userToSignIn);
+
+        if (httpResponseMessage.IsSuccessStatusCode)
+        {
+            var contentResponse = await httpResponseMessage.Content.ReadFromJsonAsync<SignInRespose>();
+            var jwtToken = contentResponse!.AccessToken;
+            await storageService.SetItemAsStringAsync("bearerToken", jwtToken);
+            await ((AppAuthenticationStateProvider)authenticationStateProvider).SignInAsync();
+            signedInWithSuccess = true;
+        }
+        else
+        {
+            attemptFailed = true;
+        }
+    }
+
+}
