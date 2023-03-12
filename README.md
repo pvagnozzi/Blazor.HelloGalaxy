@@ -1,1 +1,1 @@
-# Usul
+# Blazor HelloGalaxy
