@@ -5,7 +5,6 @@ namespace Blazor.HelloGalaxy.Client.Infrastructure;
 public class HttpClientFactory
 {
     private readonly TokenManager _tokenManager;
-
     private readonly string _baseAddress;
 
     public HttpClientFactory(string baseAddress, TokenManager tokenManager)

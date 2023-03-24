@@ -1,10 +1,13 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
+using System.Threading;
+using Blazor.HelloGalaxy.Server.Models;
+using Blazor.HelloGalaxy.Server.Services;
 using Blazor.HelloGalaxy.Shared;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using System.Text;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Blazor.HelloGalaxy.Server.Controllers;
@@ -13,16 +16,18 @@ namespace Blazor.HelloGalaxy.Server.Controllers;
 [Route("api/[controller]")]
 public class AccountsController : ControllerBase
 {
-    private readonly SignInManager<IdentityUser> signInManager;
-    private readonly UserManager<IdentityUser> userManager;
-    private readonly IConfiguration configuration;
+    private readonly SignInManager<IdentityUser> _signInManager;
+    private readonly UserManager<IdentityUser> _userManager;
+    private readonly IUserService _userService;
+    private readonly IConfiguration _configuration;
 
     public AccountsController(SignInManager<IdentityUser> signInManager,
-        UserManager<IdentityUser> userManager, IConfiguration configuration)
+        UserManager<IdentityUser> userManager, IUserService userService, IConfiguration configuration)
     {
-        this.signInManager = signInManager;
-        this.userManager = userManager;
-        this.configuration = configuration;
+        _signInManager = signInManager;
+        _userManager = userManager;
+        _configuration = configuration;
+        _userService = userService;
     }
 
     [HttpPost]
@@ -36,7 +41,7 @@ public class AccountsController : ControllerBase
             UserName = user.Email
         };
 
-        var identityResult = await userManager.CreateAsync(identityUser, user.Password);
+        var identityResult = await _userManager.CreateAsync(identityUser, user.Password);
         if (identityResult.Succeeded)
         {
             return StatusCode(StatusCodes.Status201Created, new { identityResult.Succeeded });
@@ -54,15 +59,14 @@ public class AccountsController : ControllerBase
 
     [NonAction]
     [ApiExplorerSettings(IgnoreApi = true)]
-    private async Task<string> GeneraJSONWebToken(IdentityUser identityUser)
+    private Task<string> GeneraJsonWebTokenAsync(User identityUser)
     {
         var symmetricSecurityKey =
-            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:SecurityKey"] ?? string.Empty));
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:SecurityKey"] ?? string.Empty));
         var credentials = new SigningCredentials(symmetricSecurityKey, SecurityAlgorithms.HmacSha256);
 
-        var roleNames = await userManager.GetRolesAsync(identityUser);
-
-        var email = identityUser.Email!;
+        var roleNames = new[] { "Admin " };
+        var email = identityUser.UserName!;
 
         var claims = new List<Claim>()
         {
@@ -74,12 +78,12 @@ public class AccountsController : ControllerBase
         }.Union(roleNames.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var jwtSecurityToken = new JwtSecurityToken(
-            configuration["Jwt:Issuer"],
-            configuration["Jwt:Audience"],
+            _configuration["Jwt:Issuer"],
+            _configuration["Jwt:Audience"],
             claims, DateTime.UtcNow, DateTime.UtcNow.AddMinutes(10),
             credentials
         );
-        return new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
+        return Task.FromResult(new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken));
     }
 
     [HttpPost]
@@ -87,15 +91,20 @@ public class AccountsController : ControllerBase
     [AllowAnonymous]
     public async Task<ActionResult<SignInRespose>> SignInAsync([FromBody] RegisterRequest user)
     {
-        var signInResult = await signInManager.PasswordSignInAsync(user.Email, user.Password, false, false);
-        if (!signInResult.Succeeded)
-        {
-            return Unauthorized(user);
-        }
+        //var signInResult = await _signInManager.PasswordSignInAsync(user.Email, user.Password, false, false);
+        //if (!signInResult.Succeeded)
+        //{
+        //    return Unauthorized(user);
+        //}
 
-        var identityUser = await userManager.FindByEmailAsync(user.Email);
-        var token = await GeneraJSONWebToken(identityUser!);
+        
+        //var newUser = new User("piergiorgio_vagnozzi@hotmail.com", "TestTest123!");
+        //await _userService.RegisterAsync(newUser);
 
+        var identityUser = await _userService.LoginAsync(user.Email, user.Password);
+
+        //var identityUser = await _userManager.FindByEmailAsync(user.Email);
+        var token = await GeneraJsonWebTokenAsync(identityUser!);
         var result = new SignInRespose
         {
             AccessToken = token

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Components.Authorization;
+﻿using System.Diagnostics;
+using Microsoft.AspNetCore.Components.Authorization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
@@ -7,14 +8,13 @@ namespace Blazor.HelloGalaxy.Client.Infrastructure;
 public class AppAuthenticationStateProvider: AuthenticationStateProvider
 {
     private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler = new();
-
     private readonly TokenManager _tokenManager;
+    private readonly ClaimsPrincipal _nobody = new(new ClaimsIdentity());
     
     public AppAuthenticationStateProvider(TokenManager tokenManager)
     {
         _tokenManager = tokenManager;
     }
-
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
     {
@@ -23,7 +23,7 @@ public class AppAuthenticationStateProvider: AuthenticationStateProvider
             var savedToken = await _tokenManager.GetTokenAsync();
             if (string.IsNullOrEmpty(savedToken))
             {
-                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+                return Nobody();
             }
  
             var jwtSecurityToken = _jwtSecurityTokenHandler.ReadJwtToken(savedToken);
@@ -31,27 +31,33 @@ public class AppAuthenticationStateProvider: AuthenticationStateProvider
             if (expires < DateTime.UtcNow)
             {
                 await _tokenManager.ClearTokenAsync();
-                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+                return Nobody();
             }
  
             var claims = jwtSecurityToken.Claims.ToList();
             claims.Add(new Claim(ClaimTypes.Name, jwtSecurityToken.Subject));
- 
             var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
-            return new AuthenticationState(user);
- 
+            return Nobody();
         }
         catch
         {
-            return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+            return new AuthenticationState(_nobody);
         }
     }
 
-    public async Task SignInAsync()
+    public async Task SignInAsync(string? token = null, CancellationToken cancellationToken = default)
     {
-        var savedToken = await _tokenManager.GetTokenAsync();
-
-        var jwtSecurityToken = _jwtSecurityTokenHandler.ReadJwtToken(savedToken);
+        if (!string.IsNullOrEmpty(token))
+        {
+            await _tokenManager.SetTokenAsync(token, cancellationToken);
+        }
+        else
+        {
+            token = await _tokenManager.GetTokenAsync(cancellationToken);
+        }
+        
+        
+        var jwtSecurityToken = _jwtSecurityTokenHandler.ReadJwtToken(token);
         var claims = jwtSecurityToken.Claims.ToList();
         claims.Add(new Claim(ClaimTypes.Name, jwtSecurityToken.Subject));
         var user = new ClaimsPrincipal(new ClaimsIdentity(claims, "jwt"));
@@ -67,4 +73,6 @@ public class AppAuthenticationStateProvider: AuthenticationStateProvider
         NotifyAuthenticationStateChanged(authentication);
     }
 
+    [DebuggerStepThrough]
+    private AuthenticationState Nobody() => new(_nobody);
 }

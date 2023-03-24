@@ -1,9 +1,9 @@
+using System.Text;
 using Blazor.HelloGalaxy.Server.Data;
+using Blazor.HelloGalaxy.Server.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,9 +18,9 @@ builder.Services.AddCors(options =>
         x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("MyDb")));
- 
+builder.Services.AddDbContext<ApplicationDbContext>(options => options.Set(builder.Configuration));
+builder.Services.AddScoped<IUnitOfWork, EFUnitOfWork>(_ => new EFUnitOfWork(builder.Configuration.GetDbContext()));
+builder.Services.AddScoped<IUserService, UserService>();
 
 builder.Services.AddControllers();
 builder.Services.AddDefaultIdentity<IdentityUser>()
@@ -56,16 +56,9 @@ if (app.Environment.IsDevelopment())
     app.UseWebAssemblyDebugging();
     app.UseSwagger();
     app.UseSwaggerUI();
-
-    var serviceProvider = builder.Services.BuildServiceProvider();
-
-    var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>(); 
-    var userManager = serviceProvider.GetRequiredService<UserManager<IdentityUser>>(); 
-
-    await DataHelper.SeedUserAndRoleAsync(roleManager, userManager, "admin@admin.com", "admin");
-    await DataHelper.SeedUserAndRoleAsync(roleManager, userManager, "user@user.com", "user"); 
-
     app.UseCors("AllowAny");
+
+    await app.InitializeAsync();
 }
 else
 {
@@ -84,5 +77,6 @@ app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();
 app.MapFallbackToFile("index.html");
+
 
 app.Run();

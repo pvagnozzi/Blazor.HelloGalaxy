@@ -1,10 +1,8 @@
 ﻿@page "/signin"
 @inject HttpClientFactory HttpClientFactory
-@inject ILocalStorageService storageService
 @inject AuthenticationStateProvider authenticationStateProvider
 @using Blazor.HelloGalaxy.Client.Infrastructure
 @using Blazor.HelloGalaxy.Shared
-@using Blazored.LocalStorage
 @using Microsoft.AspNetCore.Components
 <h3>SignIn</h3>
 
@@ -40,6 +38,8 @@ else
     private bool signedInWithSuccess;
     private bool attemptFailed;
 
+    private AppAuthenticationStateProvider AuthenticationStateProvider => (AppAuthenticationStateProvider)authenticationStateProvider;
+
     private async Task SignInUserAsync()
     {
         var httpClient = await HttpClientFactory.GetClientAsync();
@@ -49,8 +49,8 @@ else
         {
             var contentResponse = await httpResponseMessage.Content.ReadFromJsonAsync<SignInRespose>();
             var jwtToken = contentResponse!.AccessToken;
-            await storageService.SetItemAsStringAsync("bearerToken", jwtToken);
-            await ((AppAuthenticationStateProvider)authenticationStateProvider).SignInAsync();
+
+            await AuthenticationStateProvider.SignInAsync(jwtToken);
             signedInWithSuccess = true;
         }
         else

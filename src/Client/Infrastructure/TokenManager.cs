@@ -5,7 +5,7 @@ namespace Blazor.HelloGalaxy.Client.Infrastructure;
 
 public class TokenManager
 {
-    private const string TokenKey = "bearerToken";
+    private const string _tokenKey = "bearerToken";
 
     private readonly ILocalStorageService _localStorageService;
 
@@ -16,14 +16,14 @@ public class TokenManager
 
     [DebuggerStepThrough]
     public ValueTask<string?> GetTokenAsync(CancellationToken cancellationToken = default) =>
-        _localStorageService.GetItemAsStringAsync(TokenKey, cancellationToken);
+        _localStorageService.GetItemAsStringAsync(_tokenKey, cancellationToken);
 
     [DebuggerStepThrough]
     public ValueTask SetTokenAsync(string value, CancellationToken cancellationToken = default) =>
-        _localStorageService.SetItemAsStringAsync(TokenKey, value, cancellationToken);
+        _localStorageService.SetItemAsStringAsync(_tokenKey, value, cancellationToken);
 
     [DebuggerStepThrough]
     public ValueTask ClearTokenAsync(CancellationToken cancellationToken = default) =>
-        _localStorageService.RemoveItemAsync(TokenKey, cancellationToken);
+        _localStorageService.RemoveItemAsync(_tokenKey, cancellationToken);
 }
 
